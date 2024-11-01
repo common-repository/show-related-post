@@ -1,0 +1,185 @@
+<?php
+
+/*
+Plugin Name: Show Related Post
+Author: Mehedi Hasan Kanon
+Author URI: http://mhkanon.com
+Description: This is a Show Related Post plugin. You can show your related post easiest way. Just active and go to sleep. It will automatically display all related post below the single post.
+Text Domain: show_related_post
+Domain Path: /languages
+Version: 1.0.8.1
+Stable tag: 1.0.8.1
+License: GNU General Public License v2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+*/
+
+
+
+/*=======================================================
+					Show Related Post
+=========================================================*/
+
+
+require_once plugin_dir_path( __FILE__ ) .'srp_menu.php';
+require_once plugin_dir_path( __FILE__ ) .'srp_fields.php';
+require_once plugin_dir_path( __FILE__ ) .'srp_style.php';
+
+
+class srp_reg {
+
+	public function __construct() {
+		add_filter( 'the_content',  array( $this, 'srp_main') );
+	}
+
+	public function srp_main($default) {
+
+		// Shortcode Show
+
+		$srp_shortcode_enable = get_option('srp_shortcode_enable','1');
+
+		if($srp_shortcode_enable == '1') {
+
+			$spr_remove  = array('-');
+			$spr_remove2 = array( get_site_url(), '/' );
+
+			$srp_post_r  = str_replace($spr_remove, ' ', get_the_permalink() );
+			$srp_post_r2 = str_replace($spr_remove2, '', $srp_post_r );
+
+			$srp_pro_num = get_option('srp_shortcode_pro_number','1');
+			$srp_shortcode_template = get_option('srp_shortcode_template','box');
+
+			ob_start();
+			$default .= do_shortcode("[amazon bestseller='$srp_post_r2 wiper blade' items='$srp_pro_num' template='$srp_shortcode_template']");
+			$default .= ob_get_clean();
+		}	
+
+
+		// Related post
+
+		$categories_post = get_the_category();
+		$category_iddd   = $categories_post[0]->cat_ID;
+
+
+		if ( $category_iddd != 203 ) {     //  Hide post 203 cat id
+			
+			if(is_single()) {
+
+				// Show/Hide Reated Post
+				$srp_main_title_enable   = get_option('srp_main_title_enable','1');		
+				$srp_post_title_enable   = get_option('srp_post_title_enable','1');			
+				$srp_main_title_text     = get_option('srp_main_title_text','Related Post');
+				$srp_post_number         = get_option('srp_post_number','5');
+				$srp_post_orderby        = get_option('srp_post_orderby','date');
+				$srp_post_order          = get_option('srp_post_order','DESC');
+
+				$srp_category_post = get_the_terms(get_the_ID(),'category');
+
+				$srp_category_post_in = array();
+
+				foreach ($srp_category_post as $term) {
+					$srp_category_post_in[] = $term->term_id;
+				}			
+
+				$srp_related_post = new WP_Query(array(
+
+					'post_type'        => 'post',
+					'category__in'     => $srp_category_post_in[1],
+					'post__not_in'     => array(get_the_ID()),
+					'posts_per_page'   => $srp_post_number,
+					'orderby'          => $srp_post_orderby,
+					'order'            => $srp_post_order
+				
+				));
+
+				$srp_post = $srp_related_post->have_posts();
+
+				// Show Category
+				$categories = get_the_category();
+
+				if($srp_main_title_enable == '1'){
+
+					if(!$srp_post == '') {
+						$default .= "<h2 class ='srp_main_title'>$srp_main_title_text</h2>";
+					}
+				}
+
+				$column = 1;
+				$featured_list = array();
+
+				$default .= "<div class='srp_row'>";
+
+				while($srp_related_post->have_posts()):$srp_related_post->the_post();
+
+
+					// Veriable Declear
+					$srp_post_link = get_the_permalink();
+
+					ob_start();
+
+					//$default .= '<ul class="srp_ul_class">';
+
+					// Show Content
+
+					if($srp_post_title_enable == '1'){
+
+					    $spr_post_t_r   = array( 'Wipers','wipers','Wiper','wiper','Blade','blade','Size','size','Windshield','windshield' );
+					    $srp_post_t_r2  = str_replace( $spr_post_t_r, '', get_the_title() );
+
+
+					    $col_class = 'post-col-' .$column;
+
+						if(!$isfeatured) {
+						$default .= "<div class='$col_class'><h4><li class='srp_post_li'><a class='srp_post_title' href='$srp_post_link'>$srp_post_t_r2</a></li></h4></div>";
+						} else {
+						$featured_list[] = "<div class='$col_class'><h4><li class='srp_post_li'><a class='srp_post_title' href='$srp_post_link'>$srp_post_t_r2</a></li></h4></div>";
+						}
+
+						// Increase the Column count
+						$column++;
+						// After count has displayed 3, we reset the count
+						if($column == 4){
+						    $column = 1;
+						  // Print everything in the array, doing nothing if empty
+						  foreach ($featured_list as $featured_item) { 
+						    echo $featured_item;
+						  }
+						  // Reset the array
+						  $featured_list = array(); 
+						}
+					    
+					} // End if
+
+					$default .= ob_get_clean();
+
+					//$default .= "</ul>";
+					// End Content
+					
+				endwhile;
+
+				$default .= "</div>";
+				
+
+				// Style Include from srp_style.php
+				srp_style();
+
+
+				wp_reset_postdata();
+
+				return $default;
+
+			}else {   // Single Post
+
+				return $default;
+			}
+
+		}else{   // Hide cat
+
+			return $default;
+		}
+
+	}
+
+}
+
+
+new srp_reg();
